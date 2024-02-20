@@ -8,21 +8,128 @@ app.use(bodyParser.urlencoded({
   extended: true
 }));
 
-app.get('/', (req,res) => {
-    res.send("Welcome To EduLink Backend");
-})
+const database = mysql.createPool({
+  host: 'localhost',
+  user: 'root',
+  password: 'ngaymai123',
+  database: 'EduLink',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+const {queryClientPromise, queryTutorPromise} = require('./api_login.js');
 
 /*The API first check whether there is a userType. Then it checks whether 
 the user with the email address and password exist in the database. 
 If they exist, the api sends back a json which include the userCode and userType*/
 app.post('/api/login/?:userType', (req,res) => {
-    
+    let userType = req.params.userType;
+  
+    if (userType === undefined) {
+      return;
+    }
+
+    let body = req.body;
+
+    if (!("email" in body) || !("password" in body)) {
+      return;
+    }
+
+    let inputEmail = body.email;
+    let inputPassword = body.password;
+
+    if (userType === "client") {
+      queryClientPromise(database, inputEmail, inputPassword)
+      .then(result => {
+        if (result.length === 0) {
+          const error = new Error("No User Found");
+          error.status = 404;
+          return res.status(error.status).json({error : error.message});
+        }
+
+        res.json({
+          userCode: result[0].clientCode,
+          userEmail: result[0].clientEmail,
+          userName: result[0].clientName,
+          userPhone: result[0].clientPhone,
+          membershipEnd: result[0].membershipEnd
+        })
+      })
+      .catch(dbError => {
+        console.log(dbError);
+        const error = new Error("Internal Server Error");
+        error.status = 500;
+        return res.status(error.status).json({error : error.message});
+      })
+    }
+
+    if (userType === "tutor") {
+      queryTutorPromise(database, inputEmail, inputPassword)
+      .then(result => {
+        if (result.length === 0) {
+          const error = new Error("No User Found");
+          error.status = 404;
+          return res.status(error.status).json({error : error.message});
+        }
+
+        res.json({
+          userCode: result[0].tutorCode,
+          userEmail: result[0].tutorEmail,
+          userName: result[0].tutorName,
+          userPhone: result[0].tutorPhone,
+          membershipEnd: result[0].membershipEnd
+        })
+      })
+      .catch(dbError => {
+        console.log(dbError);
+        const error = new Error("Internal Server Error");
+        error.status = 500;
+        return res.status(error.status).json({error : error.message});
+      })
+    }
 })
+
+const {insertUserPromise} = require('./api_register.js');
 
 /*The API first check whether there is a userType. Then it insert the new 
 user into the database. If succeeded, send a message, if not send an error.*/
 app.post('/api/register/?:userType', (req,res) => {
+  if (userType === undefined) {
+    return;
+  }
 
+  let body = req.body;
+
+  let requiredValue = ["email", "name", "phone", "membershipEnd", "password", "cardNumber", "cardExpMonth", "cardExpYear"]
+  for (let i = 0; i < requiredValue.length; i++) {
+    if (!(requiredValue[i] in body)) {
+      return res.send("Unavailable");
+    } 
+  }
+
+  insertUserPromise(
+    database,
+    userType,
+    body.email,
+    body.name,
+    body.phone,
+    body.membershipEnd,
+    body.password,
+    body.cardNumber,
+    body.cardExpMonth,
+    body.cardExpYear,
+  )
+  .then(result => {
+    console.log(result);
+    res.json({message: "Operation Register Complete"})
+  })
+  .catch(dbError => {
+    console.log(dbError);
+    const error = new Error("User Already Existed");
+    error.status = 409;
+    res.status(error.status).json({error: error.message});
+  })
 })
 
 
