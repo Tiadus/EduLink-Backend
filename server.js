@@ -132,38 +132,222 @@ app.post('/api/register/?:userType', (req,res) => {
   })
 })
 
+const {queryClientInformationPromise, queryTutorInformationPromise} = require('./api_account.js')
 
 /*The API first check whether there is a userType and userCode. Then it get 
 the accounts from either the APP_CLIENT or APP_TUTOR in the database based on the information.*/
 app.get('/api/account/?:userType/?:userCode', (req,res) => {
+  if (userType === undefined || userCode === undefined) {
+    return;
+  }
 
+  if (userType === "client") {
+    queryClientInformationPromise(database, userCode)
+    .then(result => {
+      res.json(result[0]);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
+
+  if (userType === "tutor") {
+    queryTutorInformationPromise(database, userCode)
+    .then(result => {
+      res.json(result[0]);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
 })
+
+const {queryActiveRequestClientPromise, queryActiveRequestTutorPromise} = require('./api_active.js');
 
 /*The API first check whether there is a userType and userCode. Then it get
 the active requests from the REQUEST table for clients or the active requests
 from both the REQUEST and REQUEST_TUTOR table for tutors*/
 app.get('/api/active/?:userType/?:userCode', (req,res) => {
+  if (userType === undefined || userCode === undefined) {
+    return;
+  }
 
+  if (userType === "client") {
+    queryActiveRequestClientPromise(database, userCode)
+    .then(result => {
+      res.json(result);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
+
+  if (userType === "tutor") {
+    queryActiveRequestTutorPromise(database, userCode)
+    .then(result => {
+      res.json(result);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
 })
+
+const {queryHistoryClientPromise, queryHistoryTutorPromise} = require('./api_history.js')
 
 /*The API first check whether there is a userType and userCode. Then it get
 the archived requests from the REQUEST table*/
 app.get('/api/history/?:userType/?:userCode', (req,res) => {
+  if (userType === undefined || userCode === undefined) {
+    return;
+  }
 
+  if (userType === "client") {
+    queryHistoryClientPromise(database, userCode)
+    .then(result => {
+      res.json(result);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
+
+  if (userType === "tutor") {
+    queryHistoryTutorPromise(database, userCode)
+    .then(result => {
+      res.json(result);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
 })
+
+const {queryRequestTuTorPromise, toRadians, haversine, getRequestNearTutor} = require('./api_request_tutor.js');
 
 /*The API first check whether there is a userType and userCode. Then it get
 the current awaiting tutor requests from the REQUEST table*/
 app.get('/api/request/?:userType/?:userCode', (req,res) => {
+  if (userType === undefined || userCode === undefined) {
+    return;
+  }
 
+  if (req.query.lat === undefined || req.query.lon === undefined) {
+    return;
+  }
+
+  if (userType === "tutor") {
+    let tutorLat = req.query.lat;
+    let tutorLon = req.query.lon;
+    queryRequestTuTorPromise(database)
+    .then(dbResult => {
+      let requestNearTutor = getRequestNearTutor(tutorLat, tutorLon, dbResult);
+      res.json(requestNearTutor);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
 })
 
-/*The API first check whether there is a userCode.
-Then it create a booking code along with geocoding the address 
-and insert it along with the information from the booking into 
-the database.*/
-app.post('/api/booking/?:userCode', (req,res) => {
+const {createRquestCode, insertRequestPromise} = require('./api_booking.js');
 
+/*The API first check whether there is a userCode.
+Then it create a booking code insert it along with 
+the information from the booking into the database.*/
+app.post('/api/booking/?:userCode', (req,res) => {
+  if (userCode === undefined) {
+    return;
+  }
+
+  let body = req.body;
+
+  let requiredValue = 
+  ["subjectName",
+  "subjectPrice",
+  "requestDate",
+  "requestAddress",
+  "requestLatitude",
+  "requestLongtitude",
+  "requestStatus",
+  "requestComment",
+  "requestCommissionFeePercent",
+  "requestFee",
+  "requestRating",
+  "requestReview"];
+
+  for (let i = 0; i < requiredValue.length; i++) {
+    if (!(requiredValue[i] in body)) {
+      return res.send("Unavailable");
+    } 
+  }
+
+  const clientCode = userCode;
+  let requestCode = createRquestCode(userCode);
+  const tutorCode = 0;
+  const subjectName = body.subjectName;
+  const subjectPrice = body.subjectPrice;
+  const requestDate = body.requestDate;
+  const requestAddress = body.requestAddress;
+  const requestLatitude = body.requestLatitude;
+  const requestLongitude = body.requestLongitude;
+  const requestStatus = body.requestStatus;
+  const requestComment = body.requestComment;
+  const requestCommissionFeePercent = body.requestCommissionFeePercent;
+  const requestFee = body.requestFee;
+  const requestRating = body.requestRating;
+  const requestReview = body.requestReview;
+
+  insertRequestPromise(
+    database,
+    clientCode,
+    requestCode,
+    tutorCode,
+    subjectName,
+    subjectPrice,
+    requestDate,
+    requestAddress,
+    requestLatitude,
+    requestLongitude,
+    requestStatus,
+    requestComment,
+    requestCommissionFeePercent,
+    requestFee,
+    requestRating,
+    requestReview
+  )
+  .then(result => {
+    console.log(result)
+    res.json({message: "Operation Insert Complete"})
+  })
+  .catch(dbError => {
+    console.log(dbError);
+    const error = new Error("Internal Server Error");
+    error.status = 500;
+    res.status(error.status).json({error: error.message});
+  })
+  
 })
 
 /*The API first check whether there is a userType and userCode.
