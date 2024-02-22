@@ -17,8 +17,8 @@ const queryClientPromise = (database, inputEmail, inputPassword) => {
   const queryTutorPromise = (database, inputEmail, inputPassword) => {
     return new Promise((resolve,reject) => {
       const queryValue = [inputEmail, inputPassword]
-      const sql = 'SELECT APP_Tutor.tutorCode, tutorEmail, tutorName, tutorPhone, membershipEnd \
-                  FROM APP_Tutor JOIN Tutor_PASSWORD ON APP_Tutor.tutorCode = Tutor_PASSWORD.tutorCode \
+      const sql = 'SELECT APP_TUTOR.tutorCode, tutorEmail, tutorName, tutorPhone, membershipEnd \
+                  FROM APP_TUTOR JOIN TUTOR_PASSWORD ON APP_TUTOR.tutorCode = TUTOR_PASSWORD.tutorCode \
                   WHERE tutorEmail LIKE ? AND tutorPassword LIKE ?';
     
       database.query(sql, queryValue, (error, result) => {

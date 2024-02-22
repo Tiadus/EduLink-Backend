@@ -18,22 +18,28 @@ const database = mysql.createPool({
   queueLimit: 0
 });
 
+app.get('/', (req,res) => {
+  console.log("Root Accessed");
+  res.send("Hello From Root!");
+})
+
 const {queryClientPromise, queryTutorPromise} = require('./api_login.js');
 
 /*The API first check whether there is a userType. Then it checks whether 
 the user with the email address and password exist in the database. 
 If they exist, the api sends back a json which include the userCode and userType*/
 app.post('/api/login/?:userType', (req,res) => {
+
     let userType = req.params.userType;
   
     if (userType === undefined) {
-      return;
+      return res.send("Unavailable 1");
     }
 
     let body = req.body;
 
     if (!("email" in body) || !("password" in body)) {
-      return;
+      return res.send("Unavailable 2");
     }
 
     let inputEmail = body.email;
