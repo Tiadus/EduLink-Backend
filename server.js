@@ -101,6 +101,8 @@ const {insertUserPromise} = require('./api_register.js');
 /*The API first check whether there is a userType. Then it insert the new 
 user into the database. If succeeded, send a message, if not send an error.*/
 app.post('/api/register/?:userType', (req,res) => {
+  let userType = req.params.userType;
+
   if (userType === undefined) {
     return;
   }
@@ -127,8 +129,7 @@ app.post('/api/register/?:userType', (req,res) => {
     body.cardExpYear,
   )
   .then(result => {
-    console.log(result);
-    res.json({message: "Operation Register Complete"})
+    res.json({userCode: result[0][0].lastInserted})
   })
   .catch(dbError => {
     console.log(dbError);
@@ -143,8 +144,11 @@ const {queryClientInformationPromise, queryTutorInformationPromise} = require('.
 /*The API first check whether there is a userType and userCode. Then it get 
 the accounts from either the APP_CLIENT or APP_TUTOR in the database based on the information.*/
 app.get('/api/account/?:userType/?:userCode', (req,res) => {
+  let userType = req.params.userType;
+  let userCode = req.params.userCode;
+
   if (userType === undefined || userCode === undefined) {
-    return;
+    return res.send("Unavailable");
   }
 
   if (userType === "client") {
@@ -180,6 +184,9 @@ const {queryActiveRequestClientPromise, queryActiveRequestTutorPromise} = requir
 the active requests from the REQUEST table for clients or the active requests
 from both the REQUEST and REQUEST_TUTOR table for tutors*/
 app.get('/api/active/?:userType/?:userCode', (req,res) => {
+  let userType = req.params.userType;
+  let userCode = req.params.userCode;
+
   if (userType === undefined || userCode === undefined) {
     return;
   }
@@ -216,6 +223,9 @@ const {queryHistoryClientPromise, queryHistoryTutorPromise} = require('./api_his
 /*The API first check whether there is a userType and userCode. Then it get
 the archived requests from the REQUEST table*/
 app.get('/api/history/?:userType/?:userCode', (req,res) => {
+  let userType = req.params.userType;
+  let userCode = req.params.userCode;
+
   if (userType === undefined || userCode === undefined) {
     return;
   }
@@ -252,12 +262,15 @@ const {queryRequestTuTorPromise, toRadians, haversine, getRequestNearTutor} = re
 /*The API first check whether there is a userType and userCode. Then it get
 the current awaiting tutor requests from the REQUEST table*/
 app.get('/api/request/?:userType/?:userCode', (req,res) => {
+  let userType = req.params.userType;
+  let userCode = req.params.userCode;
+
   if (userType === undefined || userCode === undefined) {
-    return;
+    return res.send("Unavailable 1");
   }
 
   if (req.query.lat === undefined || req.query.lon === undefined) {
-    return;
+    return res.send("Unavailable 2");
   }
 
   if (userType === "tutor") {
@@ -283,6 +296,8 @@ const {createRquestCode, insertRequestPromise} = require('./api_booking.js');
 Then it create a booking code insert it along with 
 the information from the booking into the database.*/
 app.post('/api/booking/?:userCode', (req,res) => {
+  let userCode = req.params.userCode;
+
   if (userCode === undefined) {
     return;
   }
@@ -295,7 +310,7 @@ app.post('/api/booking/?:userCode', (req,res) => {
   "requestDate",
   "requestAddress",
   "requestLatitude",
-  "requestLongtitude",
+  "requestLongitude",
   "requestStatus",
   "requestComment",
   "requestCommissionFeePercent",
@@ -356,16 +371,148 @@ app.post('/api/booking/?:userCode', (req,res) => {
   
 })
 
-/*The API first check whether there is a userType and userCode.
-Then it get the query 'oid' and return the information of the order.*/
-app.get('/api/order/?:userType/?:userCode', (req,res) => {
+const {queryClientOrderPromise, queryTutorOrderPromise, queryRequestAcceptTuTorPromise} = require('./api_order.js');
 
+/*The API first check whether there is a userType and userCode.
+Then it get the query 'rid' and return the information of the order.*/
+app.get('/api/order/?:userType/?:userCode', (req,res) => {
+  let userType = req.params.userType;
+  let userCode = req.params.userCode;
+  let requestCode = req.query.rid;
+
+  if (userType === undefined || userCode === undefined || requestCode === undefined) {
+    return res.send("Unavailable 1");
+  }
+
+  if (userType === "client") {
+    queryClientOrderPromise(database, userCode, requestCode)
+    .then(result => {
+      let request = result[0];
+      if (request.requestStatus === 1) {
+        queryRequestAcceptTuTorPromise(database, requestCode)
+        .then(tutors => {
+          res.json({
+            request: request,
+            tutors: tutors
+          })
+        })
+        .catch(dbError => {
+          console.log(dbError);
+          const error = new Error("Internal Server Error");
+          error.status = 500;
+          res.status(error.status).json({error: error.message});
+        })
+      } else {
+        res.json({request: request});
+      }
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
+
+  if (userType === "tutor") {
+    queryTutorOrderPromise(database, userCode, requestCode)
+    .then(result => {
+      res.json(result[0]);
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
 })
+
+const {updateRequestClientPromise, updateRequestTutorPromise} = require('./api_update_request.js');
 
 /*The API first check whether there is a userType, userCode and actionType.
 Then it change the status of the request to match the action and userType.*/
-app.post('/api/order/?:userType/?:userCode/?:actionType', (req,res) => {
+app.post('/api/order/?:userType/?:userCode', (req,res) => {
+  let userType = req.params.userType;
+  let userCode = req.params.userCode;
 
+  if (userType === undefined || userCode === undefined) {
+    return res.send("Unavailable 1");
+  }
+
+  let body = req.body;
+  
+  let requiredValue = ["rid", "actionType"];
+
+  for (let i = 0; i < requiredValue.length; i++) {
+    if (!(requiredValue[i] in body)) {
+      return res.send("Unavailable");
+    } 
+  }
+
+  let requestCode = body.rid;
+  let actionType = parseInt(body.actionType);
+
+  if (userType === "client") {
+    let clientAction = "";
+    switch(actionType) {
+      case 0:
+        clientAction = updateRequestClientPromise(database, userCode, requestCode, actionType, undefined, undefined, undefined)
+        break;
+      case 2:
+        if (!("tutorCode" in body)) {
+          return res.send("Unavailable");
+        }
+        clientAction = updateRequestClientPromise(database, userCode, requestCode, actionType, body.tutorCode, undefined, undefined)
+        break;
+      case 4:
+        if (!("reviewRating" in body) || !("reviewComment" in body)) {
+          return res.send("Unavailable");
+        }
+        clientAction = updateRequestClientPromise(database, userCode, requestCode, actionType, undefined, parseInt(body.reviewRating), body.reviewComment)
+        break;
+      default:
+        const error = new Error("Invalid Action");
+        error.status = 404;
+        res.status(error.status).json({error: error.message});
+    }
+    clientAction
+    .then(result => {
+      res.json({message: "Operation Complete"});
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
+
+  if (userType === "tutor") {
+    let tutorAction = "";
+    switch(actionType) {
+      case 2:
+        tutorAction = updateRequestTutorPromise(database, userCode, requestCode, actionType);
+        break;
+      case 3:
+        tutorAction = updateRequestTutorPromise(database, userCode, requestCode, actionType);
+        break;
+      default:
+        const error = new Error("Invalid Action");
+        error.status = 404;
+        res.status(error.status).json({error: error.message});
+    }
+    tutorAction
+    .then(result => {
+      res.json({message: "Operation Complete"});
+    })
+    .catch(dbError => {
+      console.log(dbError);
+      const error = new Error("Internal Server Error");
+      error.status = 500;
+      res.status(error.status).json({error: error.message});
+    })
+  }
 })
 
 app.listen(4000, () => {

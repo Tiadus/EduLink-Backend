@@ -14,7 +14,7 @@ const createRquestCode = (userCode) => {
     // Create the formatted string
     let formattedDateTime = `${year}${month}${day}${hour}${minute}${second}`;
   
-    let requestCode = userCode.toString() + formattedDateTime;
+    let requestCode = userCode.toString() + 'CLC' + formattedDateTime;
   
     return requestCode;
   }

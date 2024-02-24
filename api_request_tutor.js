@@ -38,10 +38,11 @@ const queryRequestTuTorPromise = (database) => {
   
   const getRequestNearTutor = (tutorLat, tutorLon, dbRequest) => {
     let requestNearTutor = []
-    for (let i = 0; i < dbRequest; i++) {
+    for (let i = 0; i < dbRequest.length; i++) {
       let dbLat = dbRequest[i].requestLatitude;
       let dbLon = dbRequest[i].requestLongitude;
-      if (haversine(tutorLat, tutorLon, dbLat, dbLon) < 50) {
+      let distance = haversine(tutorLat, tutorLon, dbLat, dbLon);
+      if (distance < 50) {
         requestNearTutor.push(dbRequest[i]);
       }
     }

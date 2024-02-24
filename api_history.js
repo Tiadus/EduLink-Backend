@@ -1,7 +1,7 @@
 const queryHistoryClientPromise = (database, userCode) => {
     return new Promise((resolve, reject) => {
       let queryValue = [userCode];
-      const sql = 'SELECT * FROM REQUEST WHERE clientCode = ?'
+      const sql = 'SELECT * FROM REQUEST WHERE clientCode = ? AND requestStatus = 5'
       database.query(sql, queryValue, (error, result) => {
         if (error) {
           return reject(error);
@@ -14,7 +14,7 @@ const queryHistoryClientPromise = (database, userCode) => {
   const queryHistoryTutorPromise = (database, userCode) => {
     return new Promise((resolve, reject) => {
       let queryValue = [userCode];
-      const sql = 'SELECT * FROM REQUEST WHERE tutorCode = ?'
+      const sql = 'SELECT * FROM REQUEST WHERE tutorCode = ? AND requestStatus = 5'
       database.query(sql, queryValue, (error, result) => {
         if (error) {
           return reject(error);
